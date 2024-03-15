@@ -1,8 +1,9 @@
 from typing import Optional
 
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
-from infrastructure.database.models import User
+from infrastructure.database.models import User, Transaction
 from infrastructure.database.repo.base import BaseRepo
 
 
@@ -43,4 +44,18 @@ class UserRepo(BaseRepo):
         result = await self.session.execute(insert_stmt)
 
         await self.session.commit()
+        return result.scalar_one()
+
+    async def get_user_by_id(self, user_id: int):
+        """
+        Retrieves a user from the database by their ID.
+        :param user_id: The user's ID.
+        :return: User object, None if the user was not found.
+        """
+        select_stmt = select(
+            User.user_id,
+            User.full_name,
+            func.sum(Transaction.amount).label("balance"),
+        ).where(User.user_id == user_id)
+        result = await self.session.execute(select_stmt)
         return result.scalar_one()

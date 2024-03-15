@@ -4,8 +4,13 @@ from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.formatting import as_section, as_key_value, as_marked_list
 
-from tgbot.keyboards.inline import simple_menu_keyboard, my_orders_keyboard, \
-    OrderCallbackData
+from infrastructure.database.models.transactions import TransactionType
+from infrastructure.database.repo.requests import RequestsRepo
+from tgbot.keyboards.inline import (
+    simple_menu_keyboard,
+    my_orders_keyboard,
+    OrderCallbackData,
+)
 
 menu_router = Router()
 
@@ -17,13 +22,21 @@ async def show_menu(message: Message):
 
 # We can use F.data filter to filter callback queries by data field from CallbackQuery object
 @menu_router.callback_query(F.data == "create_order")
-async def create_order(query: CallbackQuery):
+async def create_order(query: CallbackQuery, repo: RequestsRepo):
     # Firstly, always answer callback query (as Telegram API requires)
     await query.answer()
 
+    tx = await repo.transactions.create_transaction(
+        user_id=query.from_user.id,
+        amount=-1000,
+        type=TransactionType.EXPENDITURE,
+        description="Замовлення товару",
+    )
     # This method will send an answer to the message with the button, that user pressed
     # Here query - is a CallbackQuery object, which contains message: Message object
-    await query.message.answer("Ви обрали створення замовлення!")
+    await query.message.answer(
+        f"Ви створили замовлення! Транзакція: {tx.transaction_id}"
+    )
 
     # You can also Edit the message with a new text
     # await query.message.edit_text("Ви обрали створення замовлення!")
@@ -40,8 +53,9 @@ ORDERS = [
 @menu_router.callback_query(F.data == "my_orders")
 async def my_orders(query: CallbackQuery):
     await query.answer()
-    await query.message.edit_text("Ви обрали перегляд ваших замовлень!",
-                                  reply_markup=my_orders_keyboard(ORDERS))
+    await query.message.edit_text(
+        "Ви обрали перегляд ваших замовлень!", reply_markup=my_orders_keyboard(ORDERS)
+    )
 
 
 # To filter the callback data, that was created with CallbackData factory, you can use .filter() method
